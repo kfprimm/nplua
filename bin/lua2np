@@ -1,0 +1,28 @@
+#!/usr/bin/lua
+
+function string.findlast(str, find)
+	local i = str:len()
+	while str:sub(i, i + (find:len() - 1)) ~= find do
+		i = i - 1
+	end
+	return i, i + (find:len() - 1)
+end
+
+function NPObject(decl) end
+
+function NPPlugin(opts)
+	--[[Local header$=""
+		header += :+ "#define PLUGIN_COMPANYNAME ~q"+Author()+"~q~n"
+		header:+ "#define PLUGIN_DESCRIPTION ~q"+Description()+"~q~n"
+		header:+ "#define PLUGIN_DESC ~q"+"|".Join(_descriptions)+"~q~n"
+		header:+ "#define PLUGIN_INTERNALNAME ~q"+Name().Replace(" ","")+"~q~n"
+		header:+ "#define PLUGIN_COPYRIGHT ~q"+Copyright()+"~q~n"
+		header:+ "#define PLUGIN_MIME ~q"+"|".Join(_mimes)+"~q~n"
+		header:+ "#define PLUGIN_FILENAME ~q"+base+".dll~q~n"
+		header:+ "#define PLUGIN_NAME ~q"+Name()+"~q~n" ]]
+	local script = debug.getinfo(1).source
+	os.execute("gcc --shared -fPIC -Wall -Iinclude `pkg-config --cflags lua5.1` -o "..opts['PluginName']..".so src/npapi.c src/nplua.c `pkg-config --libs lua5.1`")
+	os.execute("mv "..opts['PluginName']..".so ~/.mozilla/plugins")
+end
+
+dofile(arg[1])
