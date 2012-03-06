@@ -2,6 +2,11 @@
 -- nphelloworld - nplua basic example
 
 HelloObject = NPObject({
+	Init = function(self, args, mode)
+		for key,value in pairs(args) do
+			print("args['"..key.."'] = '"..value.."'")
+		end
+	end,
 	Run = function(self)
 		return "Hello World!"
 	end
@@ -24,3 +29,4 @@ NPPlugin({
 		{ EchoObject,  "application/x-nplua-echo",  "An object that echos anything passed to its 'Run' method." }
 	}
 })
+

@@ -25,6 +25,7 @@ typedef unsigned int bool;
 #include <npruntime.h>
 
 #include <lua.h>
+#include <lualib.h>
 #include <lauxlib.h>
 
 void nplua_log(const char *format, ...);
@@ -34,5 +35,7 @@ char *nplua_name();
 char *nplua_description();
 char *nplua_mimedescription();
 void nplua_close();
+
+int nplua_new(const char *mime, uint16_t mode, int16_t argc, char *argn[], char *argv[]);
 
 #endif

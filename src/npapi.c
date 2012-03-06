@@ -102,7 +102,7 @@ NPClass npoObject = {
 
 static NPError NPO_New(NPMIMEType pluginType, NPP instance, uint16_t mode, int16_t argc, char *argn[], char *argv[], NPSavedData *saved)
 {
-	nplua_log("NEW!");
+	instance->pdata = nplua_new((const char *)pluginType, mode, argc, argn, argv);
 	if (instance->pdata == NULL)
 		return NPERR_GENERIC_ERROR;
 	
