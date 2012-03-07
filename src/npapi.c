@@ -6,24 +6,25 @@
 #include <stdarg.h>
 #include <string.h>
 
+
 static NPNetscapeFuncs *npnfuncs;
 
 //lazy
 void _npapi_set_string(NPVariant *v, char *txt, int length)
-{ 
+{
 	char *t = (char *)npnfuncs->memalloc(length);
 	strcpy(t, txt);
 	STRINGN_TO_NPVARIANT(t, length, *v);
 }
 
 char *_npapi_get_string(NPVariant *v)
-{ 
+{
 	return (char*)NPVARIANT_TO_STRING(*v).UTF8Characters;
 }
 
 void _npapi_get_url_notify(NPP instance, const  char* url, const  char* target, void* notifyData)
 {
-	
+
 	npnfuncs->geturlnotify(instance, url, target, npnfuncs);
 }
 
@@ -46,43 +47,119 @@ char *_npapi_get_page_url(NPP instance) {
 
 typedef struct NPO
 {
-  NPObject np;
-  void *ptr;
+	NPObject np;
+	void *pdata;
 } NPO;
 
-NPObject *NPO_Allocate(NPP npp, NPClass *aClass)
+typedef struct PDATA
 {
-  NPO*object = (NPO*)malloc(sizeof(NPO));
-  object->ptr = NULL;
-  return &object->np;
+	NPO *npo;
+	int index;
+} PDATA;
+
+NPObject *NPO_Allocate(NPP instance, NPClass *aClass)
+{
+	nplua_log("NPO_Allocate!");
+	return (NPObject*)malloc(sizeof(NPO));
 }
 
 static bool NPO_HasMethod(NPObject* obj, NPIdentifier methodName) {
-	NPO *bmx = (NPO*)obj;
+	nplua_log("NPO_HasMethod!");
+
+	PDATA *pd = (PDATA*)((NPO*)obj)->pdata;
+
+
+	int result = 0;
 	char *name = npnfuncs->utf8fromidentifier(methodName);
-	
+	result = nplua_hasmethod(pd->index, name);
 	npnfuncs->memfree(name);
-	return false;
+	return result;
+}
+
+static void NPO_PushArgs(const NPVariant *args, uint32_t argCount)
+{
+	for (int i = 0;i < argCount;i++)
+	{
+		switch (args[i].type)
+		{
+		case NPVariantType_Null:case NPVariantType_Void: nplua_pushnil();break;
+		case NPVariantType_Bool:   nplua_pushboolean(NPVARIANT_TO_BOOLEAN(args[i]));break;
+		case NPVariantType_Int32:  nplua_pushnumber(NPVARIANT_TO_INT32(args[i]));break;
+		case NPVariantType_Double: nplua_pushnumber(NPVARIANT_TO_DOUBLE(args[i]));break;
+		case NPVariantType_String: nplua_pushstring(NPVARIANT_TO_STRING(args[i]).UTF8Characters);break;
+		case NPVariantType_Object: nplua_pushcdata(NPVARIANT_TO_OBJECT(args[i]));break;
+		}
+	}
+
+}
+
+static void NPO_HandleResult(NPVariant *result)
+{
+	switch (nplua_type())
+	{
+	case LUA_TSTRING:
+	{
+		int length = strlen(nplua_tostring());
+		char *t = (char *)npnfuncs->memalloc(length);
+		strcpy(t, nplua_tostring());
+		STRINGN_TO_NPVARIANT(t, length, *result);
+		break;
+	}
+	default:
+		BOOLEAN_TO_NPVARIANT(1, *result);
+		break;
+	}
 }
 
 static bool NPO_InvokeDefault(NPObject *obj, const NPVariant *args, uint32_t argCount, NPVariant *result) {
-	NPO *bmx = (NPO*)obj;
-	return false;
+	PDATA *pd = (PDATA*)((NPO*)obj)->pdata;
+	int valid = 0;
+	if (nplua_hasmethod(pd->index, "Invoke"))
+	{
+		nplua_pushmethod(pd->index, "Invoke");
+		NPO_PushArgs(args, argCount);
+
+		valid = nplua_call(argCount);
+
+		if (valid)
+			NPO_HandleResult(result);
+		else
+			nplua_log("ERROR: %s", nplua_tostring());
+
+		nplua_finish();
+	}
+	return valid;
 }
 
 static bool NPO_Invoke(NPObject* obj, NPIdentifier methodName, const NPVariant *args, uint32_t argCount, NPVariant *result) {
-	NPO *bmx = (NPO*)obj;
+	PDATA *pd = (PDATA*)((NPO*)obj)->pdata;
+
 	char *name = npnfuncs->utf8fromidentifier(methodName);
-	
+	nplua_pushmethod(pd->index, name);
 	npnfuncs->memfree(name);
-	return false;
+
+	NPO_PushArgs(args, argCount);
+	int valid = nplua_call(argCount);
+
+	if (valid)
+		NPO_HandleResult(result);
+	else
+		nplua_log("ERROR: %s", nplua_tostring());
+
+	nplua_finish();
+
+	return valid;
 }
 
 static bool NPO_HasProperty(NPObject *obj, NPIdentifier propertyName) {
+	nplua_log("NPO_HasProperty!");
+
 	return false;
 }
 
 static bool NPO_GetProperty(NPObject *obj, NPIdentifier propertyName, NPVariant *result) {
+	nplua_log("NPO_GetProperty!");
+
 	return false;
 }
 
@@ -102,102 +179,127 @@ NPClass npoObject = {
 
 static NPError NPO_New(NPMIMEType pluginType, NPP instance, uint16_t mode, int16_t argc, char *argn[], char *argv[], NPSavedData *saved)
 {
-	instance->pdata = nplua_new((const char *)pluginType, mode, argc, argn, argv);
-	if (instance->pdata == NULL)
+	int index = nplua_new((const char *)pluginType, mode, argc, argn, argv);
+	if (index == 0)
 		return NPERR_GENERIC_ERROR;
-	
-	//npnfuncs->setvalue(instance, NPPVpluginWindowBool, (void*)false);
+
+	PDATA *pd = (PDATA*)malloc(sizeof(PDATA));
+	pd->npo = 0;
+	pd->index = index;
+
+	instance->pdata = pd;
 
 	return NPERR_NO_ERROR;
 }
 
 static NPError NPO_Destroy(NPP instance, NPSavedData **save)
 {
+	nplua_log("NPO_Destroy!");
+
+	PDATA *pd = (PDATA*)instance->pdata;
+	npnfuncs->releaseobject((NPObject*)pd->npo);
+
+	free(instance->pdata);
 	return NPERR_NO_ERROR;
 }
 
 static NPError NPO_GetValue(NPP instance, NPPVariable variable, void *value)
 {
-	NPO *bmx = NULL;
-	int so = 0;
+	nplua_log("NPO_GetValue = %i!", variable);
+
+	PDATA *pd = (PDATA*)instance->pdata;
+	NPObject* npobject = (NPObject*)pd->npo;
 
 	switch(variable) {
-	default:
-		return NPERR_GENERIC_ERROR;
+	case NPPVpluginWindowBool:
+		*((int *)value) = nplua_windowed(pd->index);
+		break;
 	case NPPVpluginNameString:
 		*((char **)value) = nplua_name();
 		break;
 	case NPPVpluginDescriptionString:
 		*((char **)value) = nplua_description();
 		break;
-	case NPPVpluginScriptableNPObject:		
-		if (bmx == NULL && so)
+	case NPPVpluginScriptableNPObject:
+		if (npobject == NULL)
 		{
-			bmx = (NPO*)npnfuncs->createobject(instance, &npoObject);
-			npnfuncs->retainobject((NPObject*)bmx);
-			bmx->ptr = instance->pdata;
+			npobject = npnfuncs->createobject(instance, &npoObject);
+			pd->npo = (NPO*)npobject;
+			pd->npo->pdata = (void*)pd;
 		}
-		*(NPO **)value = bmx;
+		npnfuncs->retainobject(npobject);
+		*(NPObject **)value = npobject;
 		break;
 	case NPPVpluginNeedsXEmbed:
 		*((int *)value) = 1;
 		break;
+	default:
+		return NPERR_GENERIC_ERROR;
 	}
 	return NPERR_NO_ERROR;
 }
 
-static NPError OSCALL NPO_HandleEvent(NPP instance, void *ev)
+static NPError NPO_HandleEvent(NPP instance, void *ev)
 {
-	NPEvent *event = (NPEvent*)ev;
+	nplua_log("NPO_HandleEvent!");
+
+	//NPEvent *event = (NPEvent*)ev;
 #ifdef WIN32
 #endif
 	return NPERR_NO_ERROR;
 }
 
-static NPError OSCALL NPO_SetWindow(NPP instance, NPWindow* window)
+static NPError NPO_SetWindow(NPP instance, NPWindow* window)
 {
 #ifdef WIN32
 	HWND hwnd;
 	npnfuncs->getvalue(instance, NPNVnetscapeWindow, (void*) &hwnd);
 #endif
+	nplua_log("NPO_SetWindow!");
 	return NPERR_NO_ERROR;
 }
 
-static NPError OSCALL NPO_NewStream(NPP instance, NPMIMEType type, NPStream* stream, NPBool  seekable, uint16_t* stype)
-{	
+static NPError NPO_NewStream(NPP instance, NPMIMEType type, NPStream* stream, NPBool  seekable, uint16_t* stype)
+{
+	nplua_log("NPO_NewStream!");
 	*stype = NP_ASFILEONLY;
 	return NPERR_NO_ERROR;
 }
 
-static NPError OSCALL NPO_DestroyStream(NPP instance, NPStream* stream, NPReason reason)
-{		
+static NPError NPO_DestroyStream(NPP instance, NPStream* stream, NPReason reason)
+{
+	nplua_log("NPO_DestroyStream!");
 	return NPERR_NO_ERROR;
 }
 
-static void OSCALL NPO_URLNotify(NPP instance, const char* url, NPReason reason, void* notifyData)
+static void NPO_URLNotify(NPP instance, const char* url, NPReason reason, void* notifyData)
 {
+	nplua_log("NPO_URLNotify!");
 }
 
-static void OSCALL NPO_StreamAsFile(NPP instance, NPStream* stream, const char* fname)
+static void NPO_StreamAsFile(NPP instance, NPStream* stream, const char* fname)
 {
+	nplua_log("NPO_StreamAsFile!");
 }
 
-static int32_t OSCALL NPO_Write(NPP instance, NPStream* stream, int32_t offset, int32_t len, void* buf)
+static int32_t NPO_Write(NPP instance, NPStream* stream, int32_t offset, int32_t len, void* buf)
 {
+	nplua_log("NPO_Write!");
 	return 0;
 }
 
-static int32_t OSCALL NPO_WriteReady(NPP instance, NPStream* stream)
+static int32_t NPO_WriteReady(NPP instance, NPStream* stream)
 {
+	nplua_log("NPO_WriteReady!");
 	return 0;
 }
 
-NPError OSCALL NP_GetEntryPoints(NPPluginFuncs *nppfuncs) {
+OSDECL NPError OSCALL NP_GetEntryPoints(NPPluginFuncs *nppfuncs) {
 	if(nppfuncs == NULL)
-    return NPERR_INVALID_FUNCTABLE_ERROR;
+		return NPERR_INVALID_FUNCTABLE_ERROR;
 
-  if(nppfuncs->size < sizeof(NPPluginFuncs))
-    return NPERR_INVALID_FUNCTABLE_ERROR;
+	if(nppfuncs->size < sizeof(NPPluginFuncs))
+		return NPERR_INVALID_FUNCTABLE_ERROR;
 
 	nppfuncs->version       = (NP_VERSION_MAJOR << 8) | NP_VERSION_MINOR;
 	nppfuncs->newp          = NPO_New;
@@ -215,7 +317,7 @@ NPError OSCALL NP_GetEntryPoints(NPPluginFuncs *nppfuncs) {
 	return NPERR_NO_ERROR;
 }
 
-OSDECL NPError OSCALL NP_Initialize(NPNetscapeFuncs *npnf 
+OSDECL NPError OSCALL NP_Initialize(NPNetscapeFuncs *npnf
 #ifdef WIN32
                              )
 #else
@@ -228,9 +330,9 @@ OSDECL NPError OSCALL NP_Initialize(NPNetscapeFuncs *npnf
 	if(HIBYTE(npnf->version) > NP_VERSION_MAJOR)
 		return NPERR_INCOMPATIBLE_VERSION_ERROR;
 	npnfuncs = npnf;
-	
+
 	nplua_init();
-	
+
 #ifndef WIN32
 	NP_GetEntryPoints(nppfuncs);
 #endif
@@ -238,13 +340,13 @@ OSDECL NPError OSCALL NP_Initialize(NPNetscapeFuncs *npnf
 	return NPERR_NO_ERROR;
 }
 
-NPError OSCALL NP_Shutdown() {
+OSDECL NPError OSCALL NP_Shutdown() {
 	nplua_close();
 	return NPERR_NO_ERROR;
 }
 
 #if NP_VERSION_MINOR >= 27
-const 
+const
 #endif
 char *NP_GetMIMEDescription(void)
 {

@@ -1,11 +1,22 @@
 <html>
 <head>
 	<title>nplua - Hello World</title>
+	<script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+	<script type="text/javascript">
+		$(function() {
+			alert( $("#hello")[0]() );
+			$("#run-hello").click(function() {
+				alert(	$("#hello")[0].Run("dwedwe") );
+				return false;
+			});
+		});
+	</script>
 </head>
 <body>
 	<h2>Hello</h2>
-	<object type="application/x-nplua-hello">Install the nphelloworld plugin!</object>
-  <h2>Echo</h2>
-  <object type="application/x-nplua-echo">Install the nphelloworld plugin!</object>
+	<object id="hello" param1="hello" param2="world" type="application/x-nplua-hello">Install the nphelloworld plugin!</object>
+	<a id="run-hello" href="#">Run</a>
+	<!--<h2>Echo</h2>
+	<object id="echo" type="application/x-nplua-echo">Install the nphelloworld plugin!</object>-->
 </body>
 </html>

@@ -14,7 +14,7 @@ void nplua_log(const char *format, ...)
   va_start(list,format);
   vsprintf(msg,format,list);
   va_end(list);
-  FILE *file = fopen("/home/kfprimm/nplua/debug.log", "a");
+  FILE *file = fopen("C:\\Users\\Kevin\\Projects\\nplua\\debug.log", "a");
   fprintf(file, "%s\n", msg);
   fflush(file);
   fclose(file);
@@ -34,7 +34,7 @@ static int nplua_npobject(lua_State *L) {
 static int nplua_npplugin(lua_State *L) {
 	lua_pushvalue(L, 1);
 	lua_setglobal(L, "_npplugin");
-	
+
 	lua_pushvalue(L, 1);
 	lua_pushnil(L);
 	while (lua_next(L, -2))
@@ -51,7 +51,7 @@ static int nplua_npplugin(lua_State *L) {
 			int npobjects = lua_gettop(L);
 			lua_pushstring(L, "");
 			int mimestring = lua_gettop(L), index = 0;
-			
+
 			lua_pushvalue(L, -4);
 			lua_pushnil(L);
 			while (lua_next(L, -2))
@@ -61,11 +61,15 @@ static int nplua_npplugin(lua_State *L) {
 				lua_pushnumber(L, 3);lua_gettable(L, -3);
 				lua_pushnumber(L, 2);lua_gettable(L, -4);
 				lua_pushnumber(L, 1);lua_gettable(L, -5);
-			
+
+				lua_pushstring(L, "__index");
+				lua_pushvalue(L, -2);
+				lua_settable(L, -3);
+
 				lua_pushvalue(L, -2);
 				lua_pushvalue(L, -2);
-				lua_settable(L, npobjects);				
-				
+				lua_settable(L, npobjects);
+
 				lua_pushvalue(L, mimestring);
 				if (index != 0)
 				{
@@ -77,7 +81,7 @@ static int nplua_npplugin(lua_State *L) {
 				lua_pushvalue(L, -6);
 				lua_concat(L, 4);
 				lua_replace(L, mimestring);
-				
+
 				lua_pop(L, 3);
 
 				index += 1;
@@ -87,7 +91,7 @@ static int nplua_npplugin(lua_State *L) {
 
 			strcpy(_plugin_mime, lua_tostring(L, -1));
 			lua_setglobal(L, "_npmime");
-			
+
 			lua_setglobal(L, "_npdecls");
 		}
 		lua_pop(L, 2);
@@ -110,35 +114,40 @@ int nplua_init()
 {
 	if (L != 0)
 		return true;
-		
+
 	L = lua_open();
 	luaL_openlibs(L);
 	lua_atpanic(L, nplua_panic);
-	
+
 	lua_pushcfunction(L, nplua_npobject);
 	lua_setglobal(L, "NPObject");
-	
-  lua_pushcfunction(L, nplua_npplugin);
-  lua_setglobal(L, "NPPlugin");
-  
+
+	lua_pushcfunction(L, nplua_npplugin);
+	lua_setglobal(L, "NPPlugin");
+
 	lua_pushcfunction(L, nplua_print);
 	lua_setglobal(L, "print");
 
+	nplua_register(L);
+
 	if (!setjmp(jmp))
-	{	
-		if (luaL_dofile(L, "/home/kfprimm/nplua/test/nphelloworld.lua") != 0)
+	{
+		if (luaL_dofile(L, "C:\\Users\\Kevin\\Projects\\nplua\\test\\nphelloworld.lua") != 0)
 		{
 			nplua_log("ERROR: %s", lua_tostring(L, -1));
 			return false;
 		}
 
-		if (luaL_dofile(L, "/home/kfprimm/nplua/bin/debug.lua") != 0)
+		lua_newtable(L);
+		lua_setglobal(L, "_npobjects");
+
+		if (luaL_dofile(L, "C:\\Users\\Kevin\\Projects\\nplua\\scripts\\debug.lua") != 0)
 		{
 			nplua_log("ERROR: %s", lua_tostring(L, -1));
 			return false;
 		}
   }
-	
+
   return true;
 }
 
@@ -148,19 +157,109 @@ char *nplua_mimedescription() { nplua_init(); return _plugin_mime; }
 
 int nplua_new(const char *mime, uint16_t mode, int16_t argc, char *argn[], char *argv[])
 {
-	return 0;
+	nplua_log("Looking for %s...", mime);
 	int index = 0;
 	lua_getglobal(L, "_npdecls");
 	lua_pushstring(L, mime);
 	lua_gettable(L, -2);
+	nplua_log("type = %s", lua_typename(L, lua_type(L, -1)));
 	if (lua_type(L, -1) == LUA_TTABLE)
 	{
-		
-		index = luaL_getn(L, -2);
+		lua_newtable(L);
+		lua_pushvalue(L, -2);
+		lua_setmetatable(L, -2);
+
+		lua_getglobal(L, "_npobjects");
+		index = luaL_getn(L, -1) + 1;
+		lua_pushnumber(L, index);
+		lua_pushvalue(L, -3);
+		lua_settable(L, -3);
+
+		lua_getfield(L, -2, "New");
+		if (lua_type(L, -1) == LUA_TFUNCTION)
+		{
+			lua_pushvalue(L, -3);
+			lua_newtable(L);
+			for (int i = 0;i < argc;i++)
+			{
+				lua_pushstring(L, argn[i]);
+				lua_pushstring(L, argv[i]);
+				lua_settable(L, -3);
+			}
+			lua_pushnumber(L, mode);
+			if (lua_pcall(L, 3, 0, 0) != 0)
+			{
+				nplua_log("ERROR: %s", lua_tostring(L, -1));
+				lua_pop(L, 1);
+			}
+		}
+
+		lua_pop(L, 3);
 	}
 	lua_pop(L, 2);
-	
+	nplua_log("new! index = %i", index);
+	return index;
 }
+
+int nplua_windowed(int index)
+{
+	int result = 0;
+	lua_getglobal(L, "_npobjects");
+	lua_pushnumber(L, index);
+	lua_gettable(L, -2);
+
+	lua_getfield(L, -1, "Options");
+	if (lua_type(L, -1) == LUA_TTABLE)
+	{
+		lua_getfield(L, -1, "Windowed");
+		lua_pushboolean(L, 1);
+		index = lua_equal(L, -1, -2);
+		lua_pop(L, 2);
+	}
+
+	lua_pop(L, 2);
+	return result;
+}
+
+int nplua_hasmethod(int index, const char *name)
+{
+	int result = 0;
+	lua_getglobal(L, "_npobjects");
+	lua_pushnumber(L, index);
+	lua_gettable(L, -2);
+
+	lua_getfield(L, -1, name);
+	if (lua_type(L, -1) == LUA_TFUNCTION)
+		result = 1;
+
+	nplua_log("HAS METHOD? %s = %i", name, result);
+
+	lua_pop(L, 2);
+	return result;
+}
+
+void nplua_pushmethod(int index, const char *name)
+{
+	lua_getglobal(L, "_npobjects");
+	lua_pushnumber(L, index);
+	lua_gettable(L, -2);
+	lua_getfield(L, -1, name);
+	lua_pushvalue(L, -2);
+}
+void nplua_pushnil() { lua_pushnil(L); }
+void nplua_pushboolean(int boolean) { lua_pushboolean(L, boolean); }
+void nplua_pushnumber(double number) { lua_pushnumber(L, number); }
+void nplua_pushstring(const char *string) { lua_pushstring(L, string); }
+void nplua_pushcdata(void *data) { lua_pushlightuserdata(L, data); }
+int nplua_call(int argc)
+{
+	if (lua_pcall(L, argc + 1,1,0) != 0)
+		return 0;
+	return 1;
+}
+int nplua_type() { return lua_type(L, -1); }
+const char *nplua_tostring() { return lua_tostring(L, -1); }
+void nplua_finish() { lua_pop(L, 2); }
 
 void nplua_close()
 {
