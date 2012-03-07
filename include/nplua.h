@@ -54,6 +54,7 @@ int nplua_type();
 const char *nplua_tostring();
 void nplua_finish();
 
-
+void nplua_register(lua_State *L);
+int nplua_execute(lua_State *L);
 
 #endif

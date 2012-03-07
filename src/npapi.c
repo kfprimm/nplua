@@ -106,7 +106,7 @@ static void NPO_HandleResult(NPVariant *result)
 		break;
 	}
 	default:
-		BOOLEAN_TO_NPVARIANT(1, *result);
+		result->type = NPVariantType_Null;
 		break;
 	}
 }
@@ -205,10 +205,13 @@ static NPError NPO_Destroy(NPP instance, NPSavedData **save)
 
 static NPError NPO_GetValue(NPP instance, NPPVariable variable, void *value)
 {
-	nplua_log("NPO_GetValue = %i!", variable);
-
-	PDATA *pd = (PDATA*)instance->pdata;
-	NPObject* npobject = (NPObject*)pd->npo;
+	PDATA *pd;
+	NPObject* npobject;
+	if (instance)
+	{
+		pd = (PDATA*)instance->pdata;
+		npobject = (NPObject*)pd->npo;
+	}
 
 	switch(variable) {
 	case NPPVpluginWindowBool:
@@ -355,6 +358,6 @@ char *NP_GetMIMEDescription(void)
 
 NPError OSCALL NP_GetValue(void *npp, NPPVariable variable, void *value)
 {
-	return NPO_GetValue((NPP)npp, variable, value);
+	return NPO_GetValue(0, variable, value);
 }
 

@@ -19,46 +19,55 @@ function NPPlugin(opts)
 	desc = desc:sub(2, desc:len())
 	mime = mime:sub(2, mime:len())
 
-	io.output(io.open(opts['PluginName']..".def","w"))
-	io.write([[
-		LIBRARY "]]..opts['PluginName']..[[.dll"
-		EXPORTS
-		NP_GetEntryPoints
-		NP_Initialize
-		NP_Shutdown
-	]])
-	io.close()
-
-	local DIR = os.getenv("LUA2NP_PATH")
-
-	local template = ""
-	local tmp = io.open(DIR.."/src/npapi.rc","r")
-	template = tmp:read("*all")
-	tmp:close()
-
-	local rc = io.open(opts['PluginName']..".rc","w")
-	rc:write([[
-		#define PLUGIN_COMPANYNAME  "]]..opts['Author']..[["
-		#define PLUGIN_DESCRIPTION  "]]..opts['Description']..[["
-		#define PLUGIN_DESC         "]]..desc..[["
-		#define PLUGIN_INTERNALNAME "]]..opts['PluginName']..[["
-		#define PLUGIN_COPYRIGHT    "]]..opts['Copyright']..[["
-		#define PLUGIN_MIME         "]]..mime..[["
-		#define PLUGIN_FILENAME     "]]..opts['PluginName']..[[.dll"
-		#define PLUGIN_NAME         "]]..opts['Name'].."\"",
-	"\n", template)
-	rc:close()
-
-	os.execute("windres \""..opts['PluginName']..".rc\" \""..opts['PluginName']..".o\"")
-
-	local script = debug.getinfo(1).source
-	if os.getenv("OS") == "" then
-		os.execute("gcc --shared -fPIC -Wall -Iinclude `pkg-config --cflags lua5.1` -o "..opts['PluginName']..".so src/npapi.c src/nplua.c `pkg-config --libs lua5.1`")
-		os.execute("mv "..opts['PluginName']..".so ~/.mozilla/plugins")
+	local DIR = arg[0]:sub(1, arg[0]:findlast("/"))..".."
+	local SCRIPT_FILE = "__lua_script.c"
+	
+	os.execute("echo \"#include <nplua.h>\n\nint nplua_execute(lua_State *L)\" > "..SCRIPT_FILE)
+	os.execute("lua "..DIR.."/scripts/bin2c.lua "..arg[1].." >> "..SCRIPT_FILE)
+		
+	local C_OPTS, EXT = "-std=c99 -shared -Wall -I"..DIR.."/include -I"..DIR.."/src/lua", ""
+		
+	if os.getenv("OS") == nil then
+		EXT = "so"
+		opts['GCC_OPTS'] = (opts['GCC_OPTS'] or  "").." -lm"
 	else
-		os.execute("gcc -DWIN32 -std=c99 -shared -Wall -I"..DIR.."/include -I"..DIR.."/src/lua -o "..opts['PluginName']..".dll "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..opts['PluginName']..".o "..DIR.."/lib/liblua51.a "..opts['PluginName']..".def "..opts['GCC_OPTS'])
-		os.execute("cp "..opts['PluginName']..".dll "..os.getenv("APPDATA").."/Mozilla/plugins")
+		EXT = "dll"
+		C_OPTS = C_OPTS.." -DWIN32"
+		opts['GCC_OPTS'] = (opts['GCC_OPTS'] or  "").." "..opts['PluginName']..".def "..opts['PluginName']..".o"
+		
+		io.output(io.open(opts['PluginName']..".def","w"))
+		io.write([[
+			LIBRARY "]]..opts['PluginName']..[[.dll"
+			EXPORTS
+			NP_GetEntryPoints
+			NP_Initialize
+			NP_Shutdown
+		]])
+		io.close()
+	
+		local template = ""
+		local tmp = io.open(DIR.."/src/npapi.rc","r")
+		template = tmp:read("*all")
+		tmp:close()
+
+		local rc = io.open(opts['PluginName']..".rc","w")
+		rc:write([[
+			#define PLUGIN_COMPANYNAME  "]]..opts['Author']..[["
+			#define PLUGIN_DESCRIPTION  "]]..opts['Description']..[["
+			#define PLUGIN_DESC         "]]..desc..[["
+			#define PLUGIN_INTERNALNAME "]]..opts['PluginName']..[["
+			#define PLUGIN_COPYRIGHT    "]]..opts['Copyright']..[["
+			#define PLUGIN_MIME         "]]..mime..[["
+			#define PLUGIN_FILENAME     "]]..opts['PluginName']..[[.dll"
+			#define PLUGIN_NAME         "]]..opts['Name'].."\"",
+		"\n", template)
+		rc:close()
+		
+		os.execute("windres \""..opts['PluginName']..".rc\" \""..opts['PluginName']..".o\"")
 	end
+	
+	os.execute("gcc "..C_OPTS.." -o  "..opts['PluginName'].."."..EXT.." "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..opts['GCC_OPTS'].." "..SCRIPT_FILE.." "..DIR.."/lib/liblua51.a")
+	os.execute("rm -rf "..SCRIPT_FILE)
 end
 
 dofile(arg[1])

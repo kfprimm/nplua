@@ -3,6 +3,8 @@
 #include <string.h>
 #include <setjmp.h>
 
+#define NPLUA_PATH "/home/kfprimm/nplua"
+
 char _plugin_name[100];
 char _plugin_desc[100];
 char _plugin_mime[256];
@@ -14,7 +16,7 @@ void nplua_log(const char *format, ...)
   va_start(list,format);
   vsprintf(msg,format,list);
   va_end(list);
-  FILE *file = fopen("C:\\Users\\Kevin\\Projects\\nplua\\debug.log", "a");
+  FILE *file = fopen(NPLUA_PATH "/debug.log", "a");
   fprintf(file, "%s\n", msg);
   fflush(file);
   fclose(file);
@@ -97,7 +99,6 @@ static int nplua_npplugin(lua_State *L) {
 		lua_pop(L, 2);
 	}
 	lua_pop(L, 1);
-
   return 0;
 }
 
@@ -132,7 +133,7 @@ int nplua_init()
 
 	if (!setjmp(jmp))
 	{
-		if (luaL_dofile(L, "C:\\Users\\Kevin\\Projects\\nplua\\test\\nphelloworld.lua") != 0)
+		if (nplua_execute(L) != 0)
 		{
 			nplua_log("ERROR: %s", lua_tostring(L, -1));
 			return false;
@@ -141,7 +142,7 @@ int nplua_init()
 		lua_newtable(L);
 		lua_setglobal(L, "_npobjects");
 
-		if (luaL_dofile(L, "C:\\Users\\Kevin\\Projects\\nplua\\scripts\\debug.lua") != 0)
+		if (luaL_dofile(L, NPLUA_PATH "/scripts/debug.lua") != 0)
 		{
 			nplua_log("ERROR: %s", lua_tostring(L, -1));
 			return false;
