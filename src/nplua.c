@@ -243,8 +243,9 @@ int nplua_windowed(int index)
 	{
 		lua_getfield(L, -1, "Windowed");
 		lua_pushboolean(L, 1);
-		index = lua_equal(L, -1, -2);
+		result = lua_equal(L, -1, -2);
 		lua_pop(L, 2);
+		nplua_log("WINDOWS!");
 	}
 
 	lua_pop(L, 2);
