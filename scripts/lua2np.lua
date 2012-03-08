@@ -74,7 +74,7 @@ function NPPlugin(opts)
 	end
 
 	os.execute("gcc "..C_OPTS.." -o  "..opts['PluginName'].."."..EXT.." "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..opts['GCC_OPTS'].." "..SCRIPT_FILE.." "..DIR.."/lib/liblua51.a")
-	--os.execute("rm -rf "..SCRIPT_FILE)
+	os.execute("rm -rf "..SCRIPT_FILE)
 end
 
 dofile(arg[1])
