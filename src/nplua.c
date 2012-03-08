@@ -257,7 +257,7 @@ void nplua_setwindow(int index, HWND hwnd, int width, int height)
 	lua_pushnumber(L, index);
 	lua_gettable(L, -2);
 
-	lua_pushnumber(L, hwnd);
+	lua_pushnumber(L, (int)hwnd);
 	lua_setfield(L, -2, "Window");
 
 	lua_pushnumber(L, width);
