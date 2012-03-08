@@ -105,6 +105,9 @@ static void NPO_HandleResult(NPVariant *result)
 		STRINGN_TO_NPVARIANT(t, length, *result);
 		break;
 	}
+	case LUA_TBOOLEAN:
+		BOOLEAN_TO_NPVARIANT(nplua_toboolean(), *result);
+		break;
 	default:
 		result->type = NPVariantType_Null;
 		break;
@@ -199,7 +202,10 @@ static NPError NPO_Destroy(NPP instance, NPSavedData **save)
 	PDATA *pd = (PDATA*)instance->pdata;
 	npnfuncs->releaseobject((NPObject*)pd->npo);
 
+	nplua_destroy(pd->index);
+
 	free(instance->pdata);
+
 	return NPERR_NO_ERROR;
 }
 
@@ -227,6 +233,8 @@ static NPError NPO_GetValue(NPP instance, NPPVariable variable, void *value)
 		if (npobject == NULL)
 		{
 			npobject = npnfuncs->createobject(instance, &npoObject);
+			npnfuncs->retainobject(npobject);
+
 			pd->npo = (NPO*)npobject;
 			pd->npo->pdata = (void*)pd;
 		}
@@ -254,9 +262,9 @@ static NPError NPO_HandleEvent(NPP instance, void *ev)
 
 static NPError NPO_SetWindow(NPP instance, NPWindow* window)
 {
+	PDATA *pd = (PDATA*)instance->pdata;
 #ifdef WIN32
-	HWND hwnd;
-	npnfuncs->getvalue(instance, NPNVnetscapeWindow, (void*) &hwnd);
+	nplua_setwindow(pd->index, (HWND)window->window, window->width, window->height);
 #endif
 	nplua_log("NPO_SetWindow!");
 	return NPERR_NO_ERROR;

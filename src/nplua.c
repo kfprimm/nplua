@@ -3,7 +3,9 @@
 #include <string.h>
 #include <setjmp.h>
 
-#define NPLUA_PATH "/home/kfprimm/nplua"
+//#define NPLUA_PATH "/home/kfprimm/nplua"
+#define NPLUA_PATH "C:\\Users\\Kevin\\Projects\\nplua"
+
 
 char _plugin_name[100];
 char _plugin_desc[100];
@@ -11,15 +13,17 @@ char _plugin_mime[256];
 
 void nplua_log(const char *format, ...)
 {
-  char msg[255];
-  va_list list;
-  va_start(list,format);
-  vsprintf(msg,format,list);
-  va_end(list);
-  FILE *file = fopen(NPLUA_PATH "/debug.log", "a");
-  fprintf(file, "%s\n", msg);
-  fflush(file);
-  fclose(file);
+#ifdef DEBUG
+	char msg[255];
+	va_list list;
+	va_start(list,format);
+	vsprintf(msg,format,list);
+	va_end(list);
+	FILE *file = fopen(NPLUA_PATH "/debug.log", "a");
+	fprintf(file, "%s\n", msg);
+	fflush(file);
+	fclose(file);
+#endif
 }
 
 static int nplua_print(lua_State *L) {
@@ -141,12 +145,13 @@ int nplua_init()
 
 		lua_newtable(L);
 		lua_setglobal(L, "_npobjects");
-
+#ifdef DEBUG
 		if (luaL_dofile(L, NPLUA_PATH "/scripts/debug.lua") != 0)
 		{
 			nplua_log("ERROR: %s", lua_tostring(L, -1));
 			return false;
 		}
+#endif
   }
 
   return true;
@@ -176,6 +181,15 @@ int nplua_new(const char *mime, uint16_t mode, int16_t argc, char *argn[], char 
 		lua_pushvalue(L, -3);
 		lua_settable(L, -3);
 
+		lua_newtable(L);
+		lua_pushnumber(L, 0);
+		lua_setfield(L, -2, "HWND");
+		lua_pushnumber(L, 0);
+		lua_setfield(L, -2, "Width");
+		lua_pushnumber(L, 0);
+		lua_setfield(L, -2, "Height");
+		lua_setfield(L, -3, "Window");
+
 		lua_getfield(L, -2, "New");
 		if (lua_type(L, -1) == LUA_TFUNCTION)
 		{
@@ -202,6 +216,21 @@ int nplua_new(const char *mime, uint16_t mode, int16_t argc, char *argn[], char 
 	return index;
 }
 
+int nplua_destroy(int index)
+{
+	if (nplua_hasmethod(index, "Destroy"))
+	{
+		nplua_pushmethod(index, "Destroy");
+		if (!nplua_call(0))
+		{
+			nplua_log("ERROR: %s", nplua_tostring());
+			lua_pop(L, 1);
+			return 0;
+		}
+	}
+	return 1;
+}
+
 int nplua_windowed(int index)
 {
 	int result = 0;
@@ -220,6 +249,15 @@ int nplua_windowed(int index)
 
 	lua_pop(L, 2);
 	return result;
+}
+
+void nplua_setwindow(int index, HWND hwnd, int width, int height)
+{
+	lua_getglobal(L, "_npobjects");
+	lua_pushnumber(L, index);
+	lua_gettable(L, -2);
+
+	lua_pop(L, 1);
 }
 
 int nplua_hasmethod(int index, const char *name)
@@ -260,6 +298,9 @@ int nplua_call(int argc)
 }
 int nplua_type() { return lua_type(L, -1); }
 const char *nplua_tostring() { return lua_tostring(L, -1); }
+int nplua_toboolean() { return nplua_toboolean(L, -1); }
+double nplua_tonumber() { return nplua_tonumber(L, -1); }
+
 void nplua_finish() { lua_pop(L, 2); }
 
 void nplua_close()

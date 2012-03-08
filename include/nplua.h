@@ -39,6 +39,8 @@ char *nplua_mimedescription();
 void nplua_close();
 
 int nplua_new(const char *mime, uint16_t mode, int16_t argc, char *argn[], char *argv[]);
+int nplua_destroy(int index);
+void nplua_setwindow(int index, HWND hwnd, int width, int height);
 int nplua_windowed(int index);
 
 int nplua_hasmethod(int index, const char *name);
@@ -52,7 +54,10 @@ void nplua_pushcdata(void *data);
 int nplua_call(int argc);
 int nplua_type();
 const char *nplua_tostring();
+int nplua_toboolean();
+double nplua_tonumber();
 void nplua_finish();
+
 
 void nplua_register(lua_State *L);
 int nplua_execute(lua_State *L);
