@@ -32,15 +32,18 @@ function NPPlugin(opts)
 	io.close()
 	os.execute("lua "..DIR.."/scripts/bin2c.lua "..arg[1].." >> "..SCRIPT_FILE)
 
+	table.remove(arg, 1)
+	local GCC_OPTS = table.concat(arg, " ") or ""
+
 	local C_OPTS, EXT = "-DDEBUG -m32 -std=c99 -shared -Wall -I"..DIR.."/include -I"..DIR.."/src/lua", ""
 
 	if os.getenv("OS") == nil then
 		EXT = "so"
-		opts['GCC_OPTS'] = (opts['GCC_OPTS'] or  "").." -lm"
+		GCC_OPTS = GCC_OPTS.." -lm"
 	else
 		EXT = "dll"
 		C_OPTS = C_OPTS.." -DWIN32"
-		opts['GCC_OPTS'] = (opts['GCC_OPTS'] or  "").." "..opts['PluginName']..".def "..opts['PluginName']..".o"
+		GCC_OPTS = GCC_OPTS.." "..opts['PluginName']..".def "..opts['PluginName']..".o"
 
 		io.output(io.open(opts['PluginName']..".def","w"))
 		io.write([[
@@ -73,7 +76,7 @@ function NPPlugin(opts)
 		os.execute("windres \""..opts['PluginName']..".rc\" \""..opts['PluginName']..".o\"")
 	end
 
-	os.execute("gcc "..C_OPTS.." -o  "..opts['PluginName'].."."..EXT.." "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..opts['GCC_OPTS'].." "..SCRIPT_FILE.." "..DIR.."/lib/liblua51.a")
+	os.execute("gcc "..C_OPTS.." -o  "..opts['PluginName'].."."..EXT.." "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..GCC_OPTS.." "..SCRIPT_FILE.." "..DIR.."/lib/liblua51.a")
 	os.execute("rm -rf "..SCRIPT_FILE)
 end
 

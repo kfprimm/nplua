@@ -30,6 +30,14 @@ typedef unsigned int bool;
 #include <lualib.h>
 #include <lauxlib.h>
 
+typedef enum NPLUA_EVENT
+{
+	EVENT_INVALID,
+	EVENT_MOUSEUP,
+	EVENT_MOUSEDOWN,
+	EVENT_COUNT
+} NPLUA_EVENT;
+
 void nplua_log(const char *format, ...);
 
 int nplua_init();
@@ -42,6 +50,11 @@ int nplua_new(const char *mime, uint16_t mode, int16_t argc, char *argn[], char 
 int nplua_destroy(int index);
 void nplua_setwindow(int index, HWND hwnd, int width, int height);
 int nplua_windowed(int index);
+void nplua_handleevent(int index, int event, int data, int x, int y);
+
+int nplua_fromhwnd(HWND hwnd);
+void nplua_setpdata(int index, void *pdata);
+void *nplua_getpdata(int index);
 
 int nplua_hasmethod(int index, const char *name);
 

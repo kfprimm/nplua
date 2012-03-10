@@ -3,8 +3,10 @@
 #include <string.h>
 #include <setjmp.h>
 
+const char *NPLUA_EVENT_STRING[] = { "EVENT_INVALID", "EVENT_MOUSEUP", "EVENT_MOUSEDOWN" };
+
 //#define NPLUA_PATH "/home/kfprimm/nplua"
-#define NPLUA_PATH "C:\\Users\\Kevin\\Projects\\nplua"
+#define NPLUA_PATH "C:\\storehouse\\nplua"
 
 
 char _plugin_name[100];
@@ -108,7 +110,6 @@ static int nplua_npplugin(lua_State *L) {
 
 lua_State *L = 0;
 static jmp_buf jmp;
-//				nplua_log("-- %s - %s", lua_typename(L, lua_type(L,-1)), lua_typename(L, lua_type(L,-2)));
 
 static int nplua_panic(lua_State *L) {
 	nplua_log("ERROR: %s", lua_tostring(L, 1));
@@ -123,6 +124,15 @@ int nplua_init()
 	L = lua_open();
 	luaL_openlibs(L);
 	lua_atpanic(L, nplua_panic);
+
+	for (int i = 0;i < EVENT_COUNT; i++)
+	{
+		lua_pushnumber(L, i);
+		lua_setglobal(L, NPLUA_EVENT_STRING[i]);
+	}
+
+	lua_newtable(L);
+	lua_setglobal(L, "_nphwnds");
 
 	lua_pushcfunction(L, nplua_npobject);
 	lua_setglobal(L, "NPObject");
@@ -258,8 +268,10 @@ void nplua_setwindow(int index, HWND hwnd, int width, int height)
 	lua_pushnumber(L, index);
 	lua_gettable(L, -2);
 
+	lua_newtable(L);
+
 	lua_pushnumber(L, (int)hwnd);
-	lua_setfield(L, -2, "Window");
+	lua_setfield(L, -2, "HWND");
 
 	lua_pushnumber(L, width);
 	lua_setfield(L, -2, "Width");
@@ -267,7 +279,72 @@ void nplua_setwindow(int index, HWND hwnd, int width, int height)
 	lua_pushnumber(L, height);
 	lua_setfield(L, -2, "Height");
 
+	lua_setfield(L, -2, "Window");
+
+	if (hwnd)
+	{
+		lua_getglobal(L, "_nphwnds");
+		lua_pushnumber(L, (int)hwnd);
+		lua_pushnumber(L, index);
+		lua_settable(L, -3);
+		lua_pop(L, 1);
+	}
+
 	lua_pop(L, 1);
+}
+
+void nplua_handleevent(int index, int event, int data, int x, int y)
+{
+	if (nplua_hasmethod(index, "HandleEvent"))
+	{
+		nplua_pushmethod(index, "HandleEvent");
+		lua_newtable(L);
+		lua_pushnumber(L, event);
+		lua_setfield(L, -2, "id");
+		lua_pushnumber(L, data);
+		lua_setfield(L, -2, "data");
+		lua_pushnumber(L, x);
+		lua_setfield(L, -2, "x");
+		lua_pushnumber(L, y);
+		lua_setfield(L, -2, "y");
+
+		int cnt = nplua_call(1);
+		if (cnt == 0)
+			nplua_log("ERROR: %s", nplua_tostring());
+		nplua_finish();
+	}
+}
+
+int nplua_fromhwnd(HWND hwnd)
+{
+	lua_getglobal(L, "_nphwnds");
+	lua_pushnumber(L, (int)hwnd);
+	lua_gettable(L, -2);
+	int index = lua_tointeger(L, -1);
+	lua_pop(L, 2);
+	return index;
+}
+void nplua_setpdata(int index, void *pdata)
+{
+	lua_getglobal(L, "_npobjects");
+	lua_pushnumber(L, index);
+	lua_gettable(L, -2);
+
+	lua_pushlightuserdata(L, pdata);
+	lua_setfield(L, -2, "__pdata");
+
+	lua_pop(L, 1);
+}
+void *nplua_getpdata(int index)
+{
+	lua_getglobal(L, "_npobjects");
+	lua_pushnumber(L, index);
+	lua_gettable(L, -2);
+
+	lua_getfield(L, -1, "__pdata");
+	void *pdata = lua_touserdata(L, -1);
+	lua_pop(L, 3);
+	return pdata;
 }
 
 int nplua_hasmethod(int index, const char *name)
@@ -308,8 +385,8 @@ int nplua_call(int argc)
 }
 int nplua_type() { return lua_type(L, -1); }
 const char *nplua_tostring() { return lua_tostring(L, -1); }
-int nplua_toboolean() { return nplua_toboolean(L, -1); }
-double nplua_tonumber() { return nplua_tonumber(L, -1); }
+int nplua_toboolean() { return lua_toboolean(L, -1); }
+double nplua_tonumber() { return lua_tonumber(L, -1); }
 
 void nplua_finish() { lua_pop(L, 2); }
 

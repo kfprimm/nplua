@@ -1,4 +1,8 @@
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
 #include <nplua.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -55,7 +59,43 @@ typedef struct PDATA
 {
 	NPO *npo;
 	int index;
+	HWND hwnd;
+	WNDPROC wndproc;
 } PDATA;
+
+#ifdef WIN32
+void NPO_ProcessEvent(int index, UINT message, WPARAM wParam, LPARAM lParam)
+#else
+void NPO_ProcessEvent()
+#endif
+{
+	int id = EVENT_INVALID, data = 0, x = 0, y = 0;
+#ifdef WIN32
+	POINTS pts = MAKEPOINTS(lParam);
+	switch (message)
+	{
+	case WM_LBUTTONUP:
+		id = EVENT_MOUSEUP;
+		data = 1;
+		x = pts.x;
+		y = pts.y;
+		break;
+	}
+#endif
+
+	if (id != EVENT_INVALID)
+		nplua_handleevent(index, id, data, x, y);
+}
+
+#ifdef WIN32
+LRESULT CALLBACK NPO_WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
+{
+	int index = nplua_fromhwnd(hwnd);
+	NPO_ProcessEvent(index, message, wParam, lParam);
+	PDATA *pdata = (PDATA*)nplua_getpdata(index);
+	return CallWindowProc(pdata->wndproc, hwnd, message, wParam, lParam);
+}
+#endif
 
 NPObject *NPO_Allocate(NPP instance, NPClass *aClass)
 {
@@ -67,7 +107,6 @@ static bool NPO_HasMethod(NPObject* obj, NPIdentifier methodName) {
 	nplua_log("NPO_HasMethod!");
 
 	PDATA *pd = (PDATA*)((NPO*)obj)->pdata;
-
 
 	int result = 0;
 	char *name = npnfuncs->utf8fromidentifier(methodName);
@@ -105,6 +144,9 @@ static void NPO_HandleResult(NPVariant *result)
 		STRINGN_TO_NPVARIANT(t, length, *result);
 		break;
 	}
+	case LUA_TNUMBER:
+		DOUBLE_TO_NPVARIANT(nplua_tonumber(), *result);
+		break;
 	case LUA_TBOOLEAN:
 		BOOLEAN_TO_NPVARIANT(nplua_toboolean(), *result);
 		break;
@@ -148,9 +190,7 @@ static bool NPO_Invoke(NPObject* obj, NPIdentifier methodName, const NPVariant *
 		NPO_HandleResult(result);
 	else
 		nplua_log("ERROR: %s", nplua_tostring());
-
 	nplua_finish();
-
 	return valid;
 }
 
@@ -189,6 +229,7 @@ static NPError NPO_New(NPMIMEType pluginType, NPP instance, uint16_t mode, int16
 	PDATA *pd = (PDATA*)malloc(sizeof(PDATA));
 	pd->npo = 0;
 	pd->index = index;
+	nplua_setpdata(index, pd);
 
 	instance->pdata = pd;
 
@@ -253,20 +294,34 @@ static NPError NPO_GetValue(NPP instance, NPPVariable variable, void *value)
 static NPError NPO_HandleEvent(NPP instance, void *ev)
 {
 	nplua_log("NPO_HandleEvent!");
+	PDATA *pd = (PDATA*)instance->pdata;
 
-	//NPEvent *event = (NPEvent*)ev;
+	NPEvent *event = (NPEvent*)ev;
 #ifdef WIN32
+	NPO_ProcessEvent(pd->index, event->event, event->wParam, event->lParam);
 #endif
 	return NPERR_NO_ERROR;
 }
 
 static NPError NPO_SetWindow(NPP instance, NPWindow* window)
 {
+	nplua_log("NPO_SetWindow!");
 	PDATA *pd = (PDATA*)instance->pdata;
 #ifdef WIN32
-	nplua_setwindow(pd->index, (HWND)window->window, window->width, window->height);
+	if (pd->hwnd != (HWND)window->window)
+	{
+		if (pd->hwnd != 0)
+			SetWindowLongA(pd->hwnd,GWL_WNDPROC,(LONG)pd->wndproc);
+
+		pd->hwnd = (HWND)window->window;
+		if (pd->hwnd != 0)
+		{
+			pd->wndproc = (WNDPROC)GetWindowLongA(pd->hwnd,GWL_WNDPROC);
+			SetWindowLong(pd->hwnd,GWL_WNDPROC, (LONG)NPO_WndProc);
+		}
+	}
+	nplua_setwindow(pd->index, pd->hwnd, window->width, window->height);
 #endif
-	nplua_log("NPO_SetWindow!");
 	return NPERR_NO_ERROR;
 }
 
