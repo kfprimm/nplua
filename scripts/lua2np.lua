@@ -18,6 +18,7 @@ end
 function NPObject(decl) end
 
 function NPPlugin(opts)
+	local verbose = true
 	local desc, mime = "", ""
 	for i,object in ipairs(opts['Objects']) do
 		desc = desc.."|"..object[3]
@@ -35,20 +36,21 @@ function NPPlugin(opts)
 		int nplua_execute(lua_State *L)
 	]])
 	io.close()
-	cmd("lua "..DIR.."/scripts/bin2c.lua "..arg[1].." >> "..SCRIPT_FILE)
+	cmd("lua "..DIR.."/scripts/bin2c.lua "..arg[1].." >> "..SCRIPT_FILE, verbose)
 
 	table.remove(arg, 1)
 	local GCC_OPTS = table.concat(arg, " ") or ""
 
-	local C_OPTS, EXT = "-m32 -std=c99 -shared -Wall -I"..DIR.."/include -I"..DIR.."/src/lua", ""
+	local C_OPTS, EXT = "-DDEBUG -m32 -std=c99 -shared -Wall -I"..DIR.."/include", ""
 
 	if os.getenv("OS") == nil then
 		EXT = "so"
-		GCC_OPTS = GCC_OPTS.." -lm"
+		C_OPTS = C_OPTS.." `pkg-config lua5.1 --cflags`"
+		GCC_OPTS = GCC_OPTS.." -lm `pkg-config lua5.1 --libs`"
 	else
 		EXT = "dll"
 		C_OPTS = C_OPTS.." -DWIN32"
-		GCC_OPTS = GCC_OPTS.." "..opts['PluginName']..".def "..opts['PluginName']..".o"
+		GCC_OPTS = GCC_OPTS.." -I"..DIR.."/src/lua "..opts['PluginName']..".def "..opts['PluginName']..".o "..DIR.."/lib/liblua51.a"
 
 		io.output(io.open(opts['PluginName']..".def","w"))
 		io.write([[
@@ -78,11 +80,11 @@ function NPPlugin(opts)
 		"\n", template)
 		rc:close()
 
-		cmd("windres \""..opts['PluginName']..".rc\" \""..opts['PluginName']..".o\"")
+		cmd("windres \""..opts['PluginName']..".rc\" \""..opts['PluginName']..".o\"", verbose)
 	end
 
-	cmd("gcc "..C_OPTS.." -o  "..opts['PluginName'].."."..EXT.." "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..GCC_OPTS.." "..SCRIPT_FILE.." "..DIR.."/lib/liblua51.a")
-	cmd("rm -rf "..SCRIPT_FILE)
+	cmd("gcc "..C_OPTS.." -o  "..opts['PluginName'].."."..EXT.." "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..SCRIPT_FILE.." "..GCC_OPTS, verbose)
+	cmd("rm -rf "..SCRIPT_FILE, verbose)
 end
 
 dofile(arg[1])

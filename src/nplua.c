@@ -5,8 +5,8 @@
 
 const char *NPLUA_EVENT_STRING[] = { "EVENT_INVALID", "EVENT_MOUSEUP", "EVENT_MOUSEDOWN" };
 
-//#define NPLUA_PATH "/home/kfprimm/nplua"
-#define NPLUA_PATH "C:\\Users\\Kevin\\Projects\\nplua"
+#define NPLUA_PATH "/home/kfprimm/npstorehouse"
+//#define NPLUA_PATH "C:\\Users\\Kevin\\Projects\\nplua"
 
 
 char _plugin_name[100];

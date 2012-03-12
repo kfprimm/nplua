@@ -281,7 +281,7 @@ static NPError NPO_GetValue(NPP instance, NPPVariable variable, void *value)
 		*(NPObject **)value = npobject;
 		break;
 	case NPPVpluginNeedsXEmbed:
-		*((int *)value) = 1;
+		*((int *)value) = 1; // nplua_windowed(pd->index);
 		break;
 	default:
 		return NPERR_GENERIC_ERROR;
