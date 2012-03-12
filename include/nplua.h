@@ -48,11 +48,13 @@ void nplua_close();
 
 int nplua_new(const char *mime, uint16_t mode, int16_t argc, char *argn[], char *argv[]);
 int nplua_destroy(int index);
+#ifdef WIN32
 void nplua_setwindow(int index, HWND hwnd, int width, int height);
+int nplua_fromhwnd(HWND hwnd);
+#endif
 int nplua_windowed(int index);
 void nplua_handleevent(int index, int event, int data, int x, int y);
 
-int nplua_fromhwnd(HWND hwnd);
 void nplua_setpdata(int index, void *pdata);
 void *nplua_getpdata(int index);
 

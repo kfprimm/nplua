@@ -10,6 +10,11 @@ function string.findlast(str, find)
 	end
 end
 
+function cmd(c, verbose)
+	if verbose then print(c) end
+	assert( os.execute(c) == 0 )
+end
+
 function NPObject(decl) end
 
 function NPPlugin(opts)
@@ -21,7 +26,7 @@ function NPPlugin(opts)
 	desc = desc:sub(2, desc:len())
 	mime = mime:sub(2, mime:len())
 
-	local DIR = arg[0]:sub(1, arg[0]:findlast("\\"))..".."
+	local DIR = arg[0]:gsub("\\", "/"):sub(1, arg[0]:findlast("/"))..".."
 	local SCRIPT_FILE = "__lua_script.c"
 
 	io.output(io.open(SCRIPT_FILE,"w"))
@@ -30,7 +35,7 @@ function NPPlugin(opts)
 		int nplua_execute(lua_State *L)
 	]])
 	io.close()
-	os.execute("lua "..DIR.."/scripts/bin2c.lua "..arg[1].." >> "..SCRIPT_FILE)
+	cmd("lua "..DIR.."/scripts/bin2c.lua "..arg[1].." >> "..SCRIPT_FILE)
 
 	table.remove(arg, 1)
 	local GCC_OPTS = table.concat(arg, " ") or ""
@@ -73,11 +78,11 @@ function NPPlugin(opts)
 		"\n", template)
 		rc:close()
 
-		os.execute("windres \""..opts['PluginName']..".rc\" \""..opts['PluginName']..".o\"")
+		cmd("windres \""..opts['PluginName']..".rc\" \""..opts['PluginName']..".o\"")
 	end
 
-	os.execute("gcc "..C_OPTS.." -o  "..opts['PluginName'].."."..EXT.." "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..GCC_OPTS.." "..SCRIPT_FILE.." "..DIR.."/lib/liblua51.a")
-	os.execute("rm -rf "..SCRIPT_FILE)
+	cmd("gcc "..C_OPTS.." -o  "..opts['PluginName'].."."..EXT.." "..DIR.."/src/npapi.c "..DIR.."/src/nplua.c "..GCC_OPTS.." "..SCRIPT_FILE.." "..DIR.."/lib/liblua51.a")
+	cmd("rm -rf "..SCRIPT_FILE)
 end
 
 dofile(arg[1])

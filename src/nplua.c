@@ -262,6 +262,7 @@ int nplua_windowed(int index)
 	return result;
 }
 
+#ifdef WIN32
 void nplua_setwindow(int index, HWND hwnd, int width, int height)
 {
 	lua_getglobal(L, "_npobjects");
@@ -293,6 +294,18 @@ void nplua_setwindow(int index, HWND hwnd, int width, int height)
 	lua_pop(L, 1);
 }
 
+int nplua_fromhwnd(HWND hwnd)
+{
+	lua_getglobal(L, "_nphwnds");
+	lua_pushnumber(L, (int)hwnd);
+	lua_gettable(L, -2);
+	int index = lua_tointeger(L, -1);
+	lua_pop(L, 2);
+	return index;
+}
+
+#endif
+
 void nplua_handleevent(int index, int event, int data, int x, int y)
 {
 	if (nplua_hasmethod(index, "HandleEvent"))
@@ -315,15 +328,7 @@ void nplua_handleevent(int index, int event, int data, int x, int y)
 	}
 }
 
-int nplua_fromhwnd(HWND hwnd)
-{
-	lua_getglobal(L, "_nphwnds");
-	lua_pushnumber(L, (int)hwnd);
-	lua_gettable(L, -2);
-	int index = lua_tointeger(L, -1);
-	lua_pop(L, 2);
-	return index;
-}
+
 void nplua_setpdata(int index, void *pdata)
 {
 	lua_getglobal(L, "_npobjects");

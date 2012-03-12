@@ -59,14 +59,16 @@ typedef struct PDATA
 {
 	NPO *npo;
 	int index;
+#ifdef WIN32
 	HWND hwnd;
 	WNDPROC wndproc;
+#endif
 } PDATA;
 
 #ifdef WIN32
 void NPO_ProcessEvent(int index, UINT message, WPARAM wParam, LPARAM lParam)
 #else
-void NPO_ProcessEvent()
+void NPO_ProcessEvent(int index)
 #endif
 {
 	int id = EVENT_INVALID, data = 0, x = 0, y = 0;
@@ -290,10 +292,9 @@ static NPError NPO_GetValue(NPP instance, NPPVariable variable, void *value)
 static NPError NPO_HandleEvent(NPP instance, void *ev)
 {
 	nplua_log("NPO_HandleEvent!");
-	PDATA *pd = (PDATA*)instance->pdata;
-
-	NPEvent *event = (NPEvent*)ev;
 #ifdef WIN32
+	PDATA *pd = (PDATA*)instance->pdata;
+	NPEvent *event = (NPEvent*)ev;
 	NPO_ProcessEvent(pd->index, event->event, event->wParam, event->lParam);
 #endif
 	return NPERR_NO_ERROR;
