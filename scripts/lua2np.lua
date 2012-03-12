@@ -35,7 +35,7 @@ function NPPlugin(opts)
 	table.remove(arg, 1)
 	local GCC_OPTS = table.concat(arg, " ") or ""
 
-	local C_OPTS, EXT = "-DDEBUG -m32 -std=c99 -shared -Wall -I"..DIR.."/include -I"..DIR.."/src/lua", ""
+	local C_OPTS, EXT = "-m32 -std=c99 -shared -Wall -I"..DIR.."/include -I"..DIR.."/src/lua", ""
 
 	if os.getenv("OS") == nil then
 		EXT = "so"

@@ -6,8 +6,8 @@ AR_CMD = "ar rcs lib/liblua51.a"
 
 for i,src in ipairs(LUA_O) do
 	print("Building "..src..".c...")
-	os.execute("gcc -m32 -c -o src/"..src..".o src/lua/"..src..".c")
-	AR_CMD = AR_CMD.." src/"..src..".o"
+	os.execute("gcc -m32 -c -o src/lua/"..src..".o src/lua/"..src..".c")
+	AR_CMD = AR_CMD.." src/lua/"..src..".o"
 end
 
 print("Linking lib/liblua51.a...")

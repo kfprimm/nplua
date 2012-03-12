@@ -104,8 +104,6 @@ NPObject *NPO_Allocate(NPP instance, NPClass *aClass)
 }
 
 static bool NPO_HasMethod(NPObject* obj, NPIdentifier methodName) {
-	nplua_log("NPO_HasMethod!");
-
 	PDATA *pd = (PDATA*)((NPO*)obj)->pdata;
 
 	int result = 0;
@@ -195,8 +193,6 @@ static bool NPO_Invoke(NPObject* obj, NPIdentifier methodName, const NPVariant *
 }
 
 static bool NPO_HasProperty(NPObject *obj, NPIdentifier propertyName) {
-	nplua_log("NPO_HasProperty!");
-
 	return false;
 }
 
